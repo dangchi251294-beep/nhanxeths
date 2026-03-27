@@ -8,5 +8,6 @@
     { "id": "2", "name": "Trần Thị Bình", "classId": "c1" },
     { "id": "3", "name": "Lê Hoàng Cường", "classId": "c2" },
     { "id": "4", "name": "Phạm Mai Dung", "classId": "c2" }
-  ]
+  ],
+  "records": {}
 }

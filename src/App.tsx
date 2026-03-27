@@ -83,6 +83,7 @@ export default function App() {
   // AI Config
   const [aiTone, setAiTone] = useState('friendly'); // friendly, serious, encouraging, concise
   const [aiPronoun, setAiPronoun] = useState('con'); // con, em, bạn, học sinh
+  const [includeEnglish, setIncludeEnglish] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
 
   // Lưu trữ đánh giá theo ngày và ID học sinh
@@ -115,6 +116,7 @@ export default function App() {
           const data = await response.json();
           setClasses(data.classes || []);
           setStudents(data.students || []);
+          setRecords(data.records || {});
           if (data.classes && data.classes.length > 0) {
             setSelectedClassId(data.classes[0].id);
           }
@@ -128,12 +130,12 @@ export default function App() {
   }, []);
 
   // Save data to server
-  const saveData = async (newClasses: Class[], newStudents: Student[]) => {
+  const saveData = async (newClasses: Class[], newStudents: Student[], newRecords: Record<string, Record<string, any>> = records) => {
     try {
       await fetch('/api/data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ classes: newClasses, students: newStudents })
+        body: JSON.stringify({ classes: newClasses, students: newStudents, records: newRecords })
       });
     } catch (error) {
       console.error('Error saving data:', error);
@@ -211,13 +213,12 @@ export default function App() {
   const handleSaveEvaluation = () => {
     if (!selectedStudentId) return;
     
-    setRecords(prev => {
-      const newRecords = { ...prev };
-      if (!newRecords[date]) newRecords[date] = {};
-      
-      newRecords[date][selectedStudentId] = { ...formData };
-      return newRecords;
-    });
+    const newRecords = { ...records };
+    if (!newRecords[date]) newRecords[date] = {};
+    newRecords[date][selectedStudentId] = { ...formData };
+    
+    setRecords(newRecords);
+    saveData(classes, students, newRecords);
     
     showToast('Đã lưu nhận xét thành công!');
     
@@ -328,8 +329,8 @@ export default function App() {
         1. Viết một đoạn nhận xét ngắn (khoảng 2-4 câu).
         2. Sử dụng danh xưng: "${aiPronoun}" để gọi học sinh.
         3. Tông giọng: ${toneLabels[aiTone]}.
-        4. Ngôn ngữ: Bao gồm cả Tiếng Việt và Tiếng Anh.
-        5. Cấu trúc: Tiếng Việt ở trên, sau đó là dòng "--- English Version ---", và Tiếng Anh ở dưới.
+        4. Ngôn ngữ: ${includeEnglish ? 'Bao gồm cả Tiếng Việt và Tiếng Anh.' : 'Chỉ Tiếng Việt.'}
+        ${includeEnglish ? '5. Cấu trúc: Tiếng Việt ở trên, sau đó là dòng "--- English Version ---", và Tiếng Anh ở dưới.' : ''}
         6. Nội dung cần phản ánh đúng các tiêu chí đã chọn.
         7. Chỉ trả về nội dung nhận xét, không thêm lời dẫn hay ký tên.
       `;
@@ -591,6 +592,18 @@ export default function App() {
                                 </button>
                               ))}
                             </div>
+                          </div>
+                          <div className="md:col-span-2 flex items-center gap-3 pt-2">
+                            <label className="relative inline-flex items-center cursor-pointer">
+                              <input 
+                                type="checkbox" 
+                                className="sr-only peer"
+                                checked={includeEnglish}
+                                onChange={(e) => setIncludeEnglish(e.target.checked)}
+                              />
+                              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                              <span className="ml-3 text-sm font-medium text-slate-700">Thêm phiên bản tiếng Anh</span>
+                            </label>
                           </div>
                         </div>
                         <button

@@ -27,11 +27,11 @@ async function startServer() {
 
   app.post("/api/data", async (req, res) => {
     try {
-      const { classes, students } = req.body;
+      const { classes, students, records } = req.body;
       if (!classes || !students) {
         return res.status(400).json({ error: 'Invalid data format' });
       }
-      await fs.writeFile(DATA_FILE, JSON.stringify({ classes, students }, null, 2), 'utf-8');
+      await fs.writeFile(DATA_FILE, JSON.stringify({ classes, students, records: records || {} }, null, 2), 'utf-8');
       res.json({ success: true });
     } catch (error) {
       console.error('Error writing data file:', error);
