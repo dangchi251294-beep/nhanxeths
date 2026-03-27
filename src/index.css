@@ -1,1 +1,54 @@
 @import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-slate-900 text-slate-100 min-h-screen;
+    background-image: 
+      radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.15) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, rgba(147, 51, 234, 0.15) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, rgba(59, 130, 246, 0.15) 0px, transparent 50%),
+      radial-gradient(at 0% 100%, rgba(147, 51, 234, 0.15) 0px, transparent 50%);
+    background-attachment: fixed;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-white/10 backdrop-blur-md border border-white/20 shadow-xl rounded-2xl;
+  }
+  
+  .glass-input {
+    @apply bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all text-white placeholder-white/40;
+  }
+  
+  .glass-button {
+    @apply bg-blue-600/80 hover:bg-blue-500/90 backdrop-blur-sm text-white px-4 py-2 rounded-lg transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  .glass-button-secondary {
+    @apply bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white px-4 py-2 rounded-lg transition-all border border-white/10 active:scale-95;
+  }
+
+  .glass-tab-active {
+    @apply bg-blue-500/30 text-blue-200 border-blue-500/50;
+  }
+
+  .glass-tab-inactive {
+    @apply hover:bg-white/5 text-slate-400 border-transparent;
+  }
+}
+
+/* Custom animations */
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
