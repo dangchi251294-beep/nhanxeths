@@ -73,19 +73,9 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('evaluate'); // 'evaluate', 'summary', 'students'
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   
-  const [classes, setClasses] = useState<Class[]>([
-    { id: 'c1', name: 'Lớp 10A1' },
-    { id: 'c2', name: 'Lớp 11B2' },
-  ]);
-  
-  const [selectedClassId, setSelectedClassId] = useState<string>(classes[0]?.id || '');
-  
-  const [students, setStudents] = useState<Student[]>([
-    { id: '1', name: 'Nguyễn Văn An', classId: 'c1' },
-    { id: '2', name: 'Trần Thị Bình', classId: 'c1' },
-    { id: '3', name: 'Lê Hoàng Cường', classId: 'c2' },
-    { id: '4', name: 'Phạm Mai Dung', classId: 'c2' },
-  ]);
+  const [classes, setClasses] = useState<Class[]>([]);
+  const [selectedClassId, setSelectedClassId] = useState<string>('');
+  const [students, setStudents] = useState<Student[]>([]);
   
   const [newStudentName, setNewStudentName] = useState('');
   const [newClassName, setNewClassName] = useState('');
@@ -116,6 +106,41 @@ export default function App() {
 
   // --- HÀM XỬ LÝ ---
   
+  // Fetch data from server on mount
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await fetch('/api/data');
+        if (response.ok) {
+          const data = await response.json();
+          setClasses(data.classes || []);
+          setStudents(data.students || []);
+          if (data.classes && data.classes.length > 0) {
+            setSelectedClassId(data.classes[0].id);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        showToast('Lỗi khi tải dữ liệu từ máy chủ.');
+      }
+    };
+    fetchData();
+  }, []);
+
+  // Save data to server
+  const saveData = async (newClasses: Class[], newStudents: Student[]) => {
+    try {
+      await fetch('/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ classes: newClasses, students: newStudents })
+      });
+    } catch (error) {
+      console.error('Error saving data:', error);
+      showToast('Lỗi khi lưu dữ liệu vào máy chủ.');
+    }
+  };
+
   // Load dữ liệu khi đổi học sinh hoặc đổi ngày
   useEffect(() => {
     if (!selectedStudentId) return;
@@ -206,7 +231,9 @@ export default function App() {
     e.preventDefault();
     if (!newStudentName.trim() || !selectedClassId) return;
     const newId = Date.now().toString();
-    setStudents([...students, { id: newId, name: newStudentName.trim(), classId: selectedClassId }]);
+    const newStudents = [...students, { id: newId, name: newStudentName.trim(), classId: selectedClassId }];
+    setStudents(newStudents);
+    saveData(classes, newStudents);
     setNewStudentName('');
     showToast('Đã thêm học sinh mới');
   };
@@ -215,7 +242,9 @@ export default function App() {
     e.preventDefault();
     if (!newClassName.trim()) return;
     const newId = 'c' + Date.now().toString();
-    setClasses([...classes, { id: newId, name: newClassName.trim() }]);
+    const newClasses = [...classes, { id: newId, name: newClassName.trim() }];
+    setClasses(newClasses);
+    saveData(newClasses, students);
     setNewClassName('');
     showToast('Đã thêm lớp học mới');
     if (!selectedClassId) setSelectedClassId(newId);
@@ -223,7 +252,9 @@ export default function App() {
 
   const handleDeleteStudent = (id: string) => {
     if (window.confirm('Bạn có chắc chắn muốn xóa học sinh này?')) {
-      setStudents(students.filter(s => s.id !== id));
+      const newStudents = students.filter(s => s.id !== id);
+      setStudents(newStudents);
+      saveData(classes, newStudents);
       if (selectedStudentId === id) {
         setSelectedStudentId(filteredStudents[0]?.id || null);
       }
@@ -232,10 +263,13 @@ export default function App() {
 
   const handleDeleteClass = (id: string) => {
     if (window.confirm('Xóa lớp học sẽ xóa tất cả học sinh trong lớp. Bạn có chắc chắn?')) {
-      setClasses(classes.filter(c => c.id !== id));
-      setStudents(students.filter(s => s.classId !== id));
+      const newClasses = classes.filter(c => c.id !== id);
+      const newStudents = students.filter(s => s.classId !== id);
+      setClasses(newClasses);
+      setStudents(newStudents);
+      saveData(newClasses, newStudents);
       if (selectedClassId === id) {
-        setSelectedClassId(classes[0]?.id || '');
+        setSelectedClassId(newClasses[0]?.id || '');
       }
     }
   };
@@ -324,39 +358,39 @@ export default function App() {
   const progress = filteredStudents.length > 0 ? Math.round((evaluatedCount / filteredStudents.length) * 100) : 0;
 
   return (
-    <div className="min-h-screen flex flex-col p-4 md:p-8">
+    <div className="min-h-screen flex flex-col p-4 md:p-8 bg-slate-50">
       {/* Header */}
       <header className="max-w-7xl mx-auto w-full mb-8 flex flex-col md:flex-row justify-between items-center gap-6">
-        <div className="flex items-center gap-4 animate-float">
-          <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/30">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-600/20">
             <GraduationCap className="text-white" size={28} />
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-white">Trợ Lý Nhận Xét</h1>
-            <p className="text-blue-300/80 text-sm font-medium">Hệ thống quản lý học sinh thông minh</p>
+            <h1 className="text-3xl font-bold tracking-tight text-slate-900">Trợ Lý Nhận Xét</h1>
+            <p className="text-slate-500 text-sm font-medium">Hệ thống quản lý học sinh thông minh</p>
           </div>
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="glass-card px-4 py-2 flex items-center gap-3">
-            <Calendar size={18} className="text-blue-400" />
+          <div className="glass-card px-4 py-2 flex items-center gap-3 bg-white">
+            <Calendar size={18} className="text-blue-600" />
             <input 
               type="date" 
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="bg-transparent border-none text-white outline-none font-medium cursor-pointer text-sm"
+              className="bg-transparent border-none text-slate-700 outline-none font-medium cursor-pointer text-sm"
             />
           </div>
           
-          <div className="glass-card px-4 py-2 flex items-center gap-3">
-            <Filter size={18} className="text-blue-400" />
+          <div className="glass-card px-4 py-2 flex items-center gap-3 bg-white">
+            <Filter size={18} className="text-blue-600" />
             <select 
               value={selectedClassId}
               onChange={(e) => setSelectedClassId(e.target.value)}
-              className="bg-transparent border-none text-white outline-none font-medium cursor-pointer text-sm min-w-[120px]"
+              className="bg-transparent border-none text-slate-700 outline-none font-medium cursor-pointer text-sm min-w-[120px]"
             >
               {classes.map(c => (
-                <option key={c.id} value={c.id} className="bg-slate-800 text-white">{c.name}</option>
+                <option key={c.id} value={c.id} className="bg-white text-slate-900">{c.name}</option>
               ))}
             </select>
           </div>
@@ -391,17 +425,17 @@ export default function App() {
 
           {/* Progress Card */}
           {activeTab === 'evaluate' && (
-            <div className="glass-card p-6">
-              <h3 className="font-semibold text-white mb-4 flex items-center gap-2">
-                <LayoutDashboard size={18} className="text-blue-400" />
+            <div className="glass-card p-6 bg-white">
+              <h3 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                <LayoutDashboard size={18} className="text-blue-600" />
                 Tiến độ lớp {classes.find(c => c.id === selectedClassId)?.name}
               </h3>
-              <div className="flex justify-between text-sm text-slate-400 mb-2">
+              <div className="flex justify-between text-sm text-slate-500 mb-2">
                 <span>Hoàn thành: {evaluatedCount}/{filteredStudents.length}</span>
-                <span className="text-blue-400 font-bold">{progress}%</span>
+                <span className="text-blue-600 font-bold">{progress}%</span>
               </div>
-              <div className="w-full bg-white/5 rounded-full h-2 overflow-hidden border border-white/5">
-                <div className="bg-gradient-to-r from-blue-600 to-blue-400 h-full rounded-full transition-all duration-700 ease-out" style={{ width: `${progress}%` }}></div>
+              <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200">
+                <div className="bg-blue-600 h-full rounded-full transition-all duration-700 ease-out" style={{ width: `${progress}%` }}></div>
               </div>
             </div>
           )}
@@ -414,14 +448,14 @@ export default function App() {
           {activeTab === 'evaluate' && (
             <div className="flex flex-col lg:flex-row gap-8 h-full">
               {/* Student List */}
-              <div className="w-full lg:w-80 glass-card flex flex-col overflow-hidden">
-                <div className="p-5 border-b border-white/10 bg-white/5 flex justify-between items-center">
-                  <span className="font-bold text-white">Học sinh</span>
-                  <span className="text-xs bg-blue-500/20 text-blue-300 px-3 py-1 rounded-full border border-blue-500/30">{filteredStudents.length} HS</span>
+              <div className="w-full lg:w-80 glass-card flex flex-col overflow-hidden bg-white">
+                <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                  <span className="font-bold text-slate-900">Học sinh</span>
+                  <span className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-full border border-blue-200 font-semibold">{filteredStudents.length} HS</span>
                 </div>
                 <div className="overflow-y-auto p-3 max-h-[60vh] lg:max-h-none flex-1 custom-scrollbar">
                   {filteredStudents.length === 0 ? (
-                    <div className="p-8 text-center text-slate-500 text-sm italic">Chưa có học sinh trong lớp này.</div>
+                    <div className="p-8 text-center text-slate-400 text-sm italic">Chưa có học sinh trong lớp này.</div>
                   ) : (
                     filteredStudents.map(student => {
                       const isEvaluated = currentRecords[student.id];
@@ -431,17 +465,17 @@ export default function App() {
                           onClick={() => setSelectedStudentId(student.id)}
                           className={`w-full text-left px-4 py-3 rounded-xl mb-2 flex justify-between items-center transition-all group ${
                             selectedStudentId === student.id 
-                              ? 'bg-blue-600/80 text-white shadow-lg shadow-blue-500/20' 
+                              ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20' 
                               : isEvaluated 
-                                ? 'bg-green-500/10 text-slate-200 hover:bg-green-500/20' 
-                                : 'hover:bg-white/5 text-slate-300'
+                                ? 'bg-green-50 text-green-700 hover:bg-green-100' 
+                                : 'hover:bg-slate-50 text-slate-600'
                           }`}
                         >
                           <span className="font-medium truncate pr-2">{student.name}</span>
                           {isEvaluated ? (
-                            <CheckCircle2 size={16} className={selectedStudentId === student.id ? 'text-blue-200' : 'text-green-400'} />
+                            <CheckCircle2 size={16} className={selectedStudentId === student.id ? 'text-white' : 'text-green-500'} />
                           ) : (
-                            <ChevronRight size={16} className={`opacity-0 group-hover:opacity-100 transition-opacity ${selectedStudentId === student.id ? 'text-white' : 'text-slate-500'}`} />
+                            <ChevronRight size={16} className={`opacity-0 group-hover:opacity-100 transition-opacity ${selectedStudentId === student.id ? 'text-white' : 'text-slate-400'}`} />
                           )}
                         </button>
                       );
@@ -451,25 +485,25 @@ export default function App() {
               </div>
 
               {/* Form Area */}
-              <div className="flex-1 glass-card flex flex-col overflow-hidden">
+              <div className="flex-1 glass-card flex flex-col overflow-hidden bg-white">
                 {!selectedStudentId ? (
-                  <div className="flex-1 flex flex-col items-center justify-center p-12 text-slate-500 gap-4">
-                    <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center border border-white/10">
+                  <div className="flex-1 flex flex-col items-center justify-center p-12 text-slate-400 gap-4">
+                    <div className="w-20 h-20 rounded-full bg-slate-50 flex items-center justify-center border border-slate-100">
                       <Search size={32} />
                     </div>
                     <p className="text-lg font-medium">Vui lòng chọn học sinh để bắt đầu</p>
                   </div>
                 ) : (
                   <>
-                    <div className="p-6 border-b border-white/10 flex justify-between items-center bg-white/5">
+                    <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/30">
                       <div>
-                        <h2 className="text-2xl font-bold text-white">
+                        <h2 className="text-2xl font-bold text-slate-900">
                           {students.find(s => s.id === selectedStudentId)?.name}
                         </h2>
-                        <p className="text-sm text-blue-400 font-medium">{classes.find(c => c.id === selectedClassId)?.name}</p>
+                        <p className="text-sm text-blue-600 font-semibold">{classes.find(c => c.id === selectedClassId)?.name}</p>
                       </div>
                       {currentRecords[selectedStudentId] && (
-                         <span className="text-xs font-bold bg-green-500/20 text-green-400 px-3 py-1.5 rounded-full border border-green-500/30 flex items-center gap-2">
+                         <span className="text-xs font-bold bg-green-100 text-green-700 px-3 py-1.5 rounded-full border border-green-200 flex items-center gap-2">
                            <CheckCircle2 size={14}/> Đã lưu đánh giá
                          </span>
                       )}
@@ -478,7 +512,7 @@ export default function App() {
                     <div className="p-8 overflow-y-auto flex-1 flex flex-col gap-8 custom-scrollbar">
                       {Object.entries(CRITERIA_CONFIG).map(([key, config]) => (
                         <div key={key}>
-                          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">{config.label}</h3>
+                          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">{config.label}</h3>
                           <div className="flex flex-wrap gap-3">
                             {config.options.map(opt => (
                               <button
@@ -486,8 +520,8 @@ export default function App() {
                                 onClick={() => handleFormChange(key, opt.id)}
                                 className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-all border ${
                                   (formData as any)[key] === opt.id
-                                    ? 'bg-blue-600/30 border-blue-500 text-blue-200 shadow-lg shadow-blue-500/10'
-                                    : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 hover:border-white/20'
+                                    ? 'bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-600/20'
+                                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300'
                                 }`}
                               >
                                 {opt.text}
@@ -498,7 +532,7 @@ export default function App() {
                       ))}
 
                       <div>
-                        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Ghi chú thêm</h3>
+                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Ghi chú thêm</h3>
                         <textarea
                           value={formData.note}
                           onChange={(e) => handleFormChange('note', e.target.value)}
@@ -507,9 +541,9 @@ export default function App() {
                         />
                       </div>
 
-                      <div className="bg-white/5 rounded-2xl p-6 border border-white/10">
-                        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                          <Sparkles size={14} className="text-blue-400" /> Tùy chỉnh AI
+                      <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200">
+                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                          <Sparkles size={14} className="text-blue-600" /> Tùy chỉnh AI
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div>
@@ -526,8 +560,8 @@ export default function App() {
                                   onClick={() => setAiTone(t.id)}
                                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
                                     aiTone === t.id 
-                                      ? 'bg-blue-500/20 border-blue-500/50 text-blue-300' 
-                                      : 'bg-white/5 border-white/5 text-slate-500 hover:bg-white/10'
+                                      ? 'bg-blue-600 border-blue-600 text-white' 
+                                      : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
                                   }`}
                                 >
                                   {t.label}
@@ -549,8 +583,8 @@ export default function App() {
                                   onClick={() => setAiPronoun(p.id)}
                                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
                                     aiPronoun === p.id 
-                                      ? 'bg-blue-500/20 border-blue-500/50 text-blue-300' 
-                                      : 'bg-white/5 border-white/5 text-slate-500 hover:bg-white/10'
+                                      ? 'bg-blue-600 border-blue-600 text-white' 
+                                      : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
                                   }`}
                                 >
                                   {p.label}
@@ -562,7 +596,7 @@ export default function App() {
                         <button
                           onClick={handleGenerateAIComment}
                           disabled={isGenerating}
-                          className="w-full mt-6 glass-button-secondary flex items-center justify-center gap-2 py-3 font-bold text-blue-400 border-blue-500/20 hover:border-blue-500/40"
+                          className="w-full mt-6 glass-button flex items-center justify-center gap-2 py-3 font-bold"
                         >
                           {isGenerating ? (
                             <Loader2 size={18} className="animate-spin" />
@@ -573,14 +607,14 @@ export default function App() {
                         </button>
                       </div>
 
-                      <div className="bg-blue-500/5 rounded-2xl p-6 border border-blue-500/20">
+                      <div className="bg-blue-50 rounded-2xl p-6 border border-blue-100">
                         <div className="flex justify-between items-center mb-4">
-                          <h3 className="text-sm font-bold text-blue-300 flex items-center gap-2">
+                          <h3 className="text-sm font-bold text-blue-700 flex items-center gap-2">
                             <ClipboardList size={16} /> Nhận xét tự động
                           </h3>
                           <button 
                             onClick={() => copyToClipboard(formData.finalComment)}
-                            className="bg-white/10 hover:bg-white/20 text-white p-2 rounded-lg transition-all flex items-center gap-2 text-xs font-bold border border-white/10"
+                            className="bg-white hover:bg-slate-50 text-slate-700 p-2 rounded-lg transition-all flex items-center gap-2 text-xs font-bold border border-slate-200 shadow-sm"
                           >
                             <Copy size={14} /> Sao chép
                           </button>
@@ -588,12 +622,12 @@ export default function App() {
                         <textarea
                           value={formData.finalComment}
                           onChange={(e) => handleFormChange('finalComment', e.target.value)}
-                          className="w-full bg-white/5 p-4 border border-white/10 rounded-xl text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none h-32 leading-relaxed"
+                          className="w-full bg-white p-4 border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none h-32 leading-relaxed"
                         />
                       </div>
                     </div>
                     
-                    <div className="p-6 border-t border-white/10 bg-white/5 flex justify-end">
+                    <div className="p-6 border-t border-slate-100 bg-slate-50/30 flex justify-end">
                       <button
                         onClick={handleSaveEvaluation}
                         className="glass-button flex items-center gap-2 px-8 py-3 font-bold"
@@ -610,11 +644,11 @@ export default function App() {
 
           {/* VIEW: TỔNG HỢP */}
           {activeTab === 'summary' && (
-            <div className="glass-card flex flex-col h-full overflow-hidden">
-              <div className="p-8 border-b border-white/10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white/5">
+            <div className="glass-card flex flex-col h-full overflow-hidden bg-white">
+              <div className="p-8 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50/30">
                 <div>
-                  <h2 className="text-2xl font-bold text-white">Tổng hợp: {classes.find(c => c.id === selectedClassId)?.name}</h2>
-                  <p className="text-sm text-slate-400 mt-1">Ngày {new Date(date).toLocaleDateString('vi-VN')} • {evaluatedCount}/{filteredStudents.length} HS</p>
+                  <h2 className="text-2xl font-bold text-slate-900">Tổng hợp: {classes.find(c => c.id === selectedClassId)?.name}</h2>
+                  <p className="text-sm text-slate-500 mt-1">Ngày {new Date(date).toLocaleDateString('vi-VN')} • {evaluatedCount}/{filteredStudents.length} HS</p>
                 </div>
                 <button
                   onClick={() => {
@@ -632,7 +666,7 @@ export default function App() {
               </div>
               <div className="p-8 overflow-y-auto flex-1 custom-scrollbar">
                 {evaluatedCount === 0 ? (
-                  <div className="text-center text-slate-500 py-20 flex flex-col items-center gap-4">
+                  <div className="text-center text-slate-400 py-20 flex flex-col items-center gap-4">
                     <ClipboardList size={48} className="opacity-20" />
                     <p className="text-lg">Chưa có đánh giá nào cho lớp này trong ngày hôm nay.</p>
                   </div>
@@ -642,18 +676,18 @@ export default function App() {
                       const record = currentRecords[student.id];
                       if (!record) return null;
                       return (
-                        <div key={student.id} className="p-5 bg-white/5 border border-white/10 rounded-2xl relative group hover:bg-white/10 transition-all">
+                        <div key={student.id} className="p-5 bg-slate-50 border border-slate-200 rounded-2xl relative group hover:bg-slate-100 transition-all">
                           <div className="flex justify-between items-start mb-3">
-                            <div className="font-bold text-blue-300">{idx + 1}. {student.name}</div>
+                            <div className="font-bold text-blue-600">{idx + 1}. {student.name}</div>
                             <button 
                               onClick={() => copyToClipboard(record.finalComment)}
-                              className="text-slate-500 hover:text-white transition-colors"
+                              className="text-slate-400 hover:text-slate-600 transition-colors"
                               title="Copy nhận xét"
                             >
                               <Copy size={18} />
                             </button>
                           </div>
-                          <p className="text-slate-300 text-sm leading-relaxed">{record.finalComment}</p>
+                          <p className="text-slate-700 text-sm leading-relaxed whitespace-pre-wrap">{record.finalComment}</p>
                         </div>
                       );
                     })}
@@ -667,9 +701,9 @@ export default function App() {
           {activeTab === 'students' && (
             <div className="flex flex-col lg:flex-row gap-8 h-full">
               {/* Class Management */}
-              <div className="w-full lg:w-80 glass-card flex flex-col overflow-hidden">
-                <div className="p-5 border-b border-white/10 bg-white/5">
-                  <h3 className="font-bold text-white">Danh sách lớp</h3>
+              <div className="w-full lg:w-80 glass-card flex flex-col overflow-hidden bg-white">
+                <div className="p-5 border-b border-slate-100 bg-slate-50/50">
+                  <h3 className="font-bold text-slate-900">Danh sách lớp</h3>
                 </div>
                 <div className="p-4 flex-1 overflow-y-auto custom-scrollbar">
                   <form onSubmit={handleAddClass} className="flex gap-2 mb-6">
@@ -687,15 +721,15 @@ export default function App() {
                     {classes.map(c => (
                       <div 
                         key={c.id} 
-                        className={`flex items-center justify-between p-3 rounded-xl border transition-all ${selectedClassId === c.id ? 'bg-blue-600/20 border-blue-500/50 text-white' : 'bg-white/5 border-white/5 text-slate-400 hover:bg-white/10'}`}
+                        className={`flex items-center justify-between p-3 rounded-xl border transition-all ${selectedClassId === c.id ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white border-slate-100 text-slate-500 hover:bg-slate-50'}`}
                       >
                         <button 
                           onClick={() => setSelectedClassId(c.id)}
-                          className="flex-1 text-left font-medium text-sm"
+                          className="flex-1 text-left font-semibold text-sm"
                         >
                           {c.name}
                         </button>
-                        <button onClick={() => handleDeleteClass(c.id)} className="text-slate-500 hover:text-red-400 p-1">
+                        <button onClick={() => handleDeleteClass(c.id)} className="text-slate-400 hover:text-red-500 p-1">
                           <Trash2 size={16} />
                         </button>
                       </div>
@@ -705,17 +739,17 @@ export default function App() {
               </div>
 
               {/* Student Management */}
-              <div className="flex-1 glass-card flex flex-col overflow-hidden">
-                <div className="p-6 border-b border-white/10 bg-white/5 flex justify-between items-center">
+              <div className="flex-1 glass-card flex flex-col overflow-hidden bg-white">
+                <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
                   <div>
-                    <h2 className="text-xl font-bold text-white">Học sinh lớp {classes.find(c => c.id === selectedClassId)?.name}</h2>
-                    <p className="text-sm text-slate-400 mt-1">Quản lý thành viên trong lớp được chọn.</p>
+                    <h2 className="text-xl font-bold text-slate-900">Học sinh lớp {classes.find(c => c.id === selectedClassId)?.name}</h2>
+                    <p className="text-sm text-slate-500 mt-1">Quản lý thành viên trong lớp được chọn.</p>
                   </div>
                 </div>
                 
                 <div className="p-8 flex-1 overflow-y-auto custom-scrollbar">
                   {!selectedClassId ? (
-                    <div className="text-center text-slate-500 py-10">Vui lòng chọn hoặc thêm lớp học trước.</div>
+                    <div className="text-center text-slate-400 py-10">Vui lòng chọn hoặc thêm lớp học trước.</div>
                   ) : (
                     <>
                       <form onSubmit={handleAddStudent} className="flex gap-3 mb-8">
@@ -735,21 +769,21 @@ export default function App() {
                         </button>
                       </form>
 
-                      <div className="bg-white/5 rounded-2xl border border-white/10 overflow-hidden">
-                        <div className="p-4 bg-white/5 border-b border-white/10 text-xs font-bold text-slate-400 uppercase tracking-widest flex justify-between">
+                      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                        <div className="p-4 bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-widest flex justify-between">
                           <span>Họ và Tên</span>
                           <span>Thao tác</span>
                         </div>
-                        <ul className="divide-y divide-white/5">
+                        <ul className="divide-y divide-slate-100">
                           {filteredStudents.length === 0 ? (
-                            <li className="p-8 text-center text-slate-500 italic">Lớp chưa có học sinh.</li>
+                            <li className="p-8 text-center text-slate-400 italic">Lớp chưa có học sinh.</li>
                           ) : (
                             filteredStudents.map((student, idx) => (
-                              <li key={student.id} className="flex justify-between items-center p-4 hover:bg-white/5 transition-all">
-                                <span className="font-medium text-slate-200">{idx + 1}. {student.name}</span>
+                              <li key={student.id} className="flex justify-between items-center p-4 hover:bg-slate-50 transition-all">
+                                <span className="font-medium text-slate-700">{idx + 1}. {student.name}</span>
                                 <button 
                                   onClick={() => handleDeleteStudent(student.id)}
-                                  className="text-slate-500 hover:text-red-400 p-2 rounded-xl hover:bg-red-500/10 transition-all"
+                                  className="text-slate-400 hover:text-red-500 p-2 rounded-xl hover:bg-red-50 transition-all"
                                 >
                                   <Trash2 size={18} />
                                 </button>

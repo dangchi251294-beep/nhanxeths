@@ -1,0 +1,12 @@
+{
+  "classes": [
+    { "id": "c1", "name": "Lớp 10A1" },
+    { "id": "c2", "name": "Lớp 11B2" }
+  ],
+  "students": [
+    { "id": "1", "name": "Nguyễn Văn An", "classId": "c1" },
+    { "id": "2", "name": "Trần Thị Bình", "classId": "c1" },
+    { "id": "3", "name": "Lê Hoàng Cường", "classId": "c2" },
+    { "id": "4", "name": "Phạm Mai Dung", "classId": "c2" }
+  ]
+}
