@@ -21,9 +21,14 @@ import {
   Filter,
   Sparkles,
   Loader2,
-  MessageSquareQuote
+  MessageSquareQuote,
+  Table,
+  List,
+  Download,
+  FileSpreadsheet
 } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
+import * as XLSX from 'xlsx';
 
 // --- CẤU HÌNH TIÊU CHÍ ĐÁNH GIÁ ---
 const CRITERIA_CONFIG = {
@@ -85,6 +90,7 @@ export default function App() {
   const [aiPronoun, setAiPronoun] = useState('con'); // con, em, bạn, học sinh
   const [includeEnglish, setIncludeEnglish] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [summaryViewMode, setSummaryViewMode] = useState<'list' | 'table'>('list');
 
   // Lưu trữ đánh giá theo ngày và ID học sinh
   const [records, setRecords] = useState<Record<string, Record<string, any>>>({});
@@ -351,6 +357,51 @@ export default function App() {
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const exportToExcel = () => {
+    const className = classes.find(c => c.id === selectedClassId)?.name || 'Lớp';
+    const exportData = filteredStudents
+      .filter(s => currentRecords[s.id])
+      .map(student => {
+        const record = currentRecords[student.id];
+        const attText = CRITERIA_CONFIG.attendance.options.find(o => o.id === record.attendance)?.text || '';
+        const attitText = CRITERIA_CONFIG.attitude.options.find(o => o.id === record.attitude)?.text || '';
+        const hwText = CRITERIA_CONFIG.homework.options.find(o => o.id === record.homework)?.text || '';
+        
+        return {
+          'Ngày': date,
+          'Lớp': className,
+          'Tên học sinh': student.name,
+          'Chuyên cần': attText,
+          'Thái độ': attitText,
+          'Bài tập': hwText,
+          'Ghi chú': record.note,
+          'Nhận xét của giáo viên': record.finalComment
+        };
+      });
+
+    if (exportData.length === 0) {
+      showToast('Không có dữ liệu để xuất!');
+      return;
+    }
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Nhận xét");
+    
+    // Auto-size columns
+    const maxWidths = exportData.reduce((acc: any, row: any) => {
+      Object.keys(row).forEach((key, i) => {
+        const val = row[key] ? row[key].toString().length : 0;
+        acc[i] = Math.max(acc[i] || 0, val, key.length);
+      });
+      return acc;
+    }, []);
+    worksheet['!cols'] = maxWidths.map((w: number) => ({ w: w + 2 }));
+
+    XLSX.writeFile(workbook, `Nhan_Xet_${className}_${date}.xlsx`);
+    showToast('Đã xuất file Excel thành công!');
   };
 
   // --- RENDER HELPERS ---
@@ -658,32 +709,61 @@ export default function App() {
           {/* VIEW: TỔNG HỢP */}
           {activeTab === 'summary' && (
             <div className="glass-card flex flex-col h-full overflow-hidden bg-white">
-              <div className="p-8 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50/30">
+              <div className="p-8 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 bg-slate-50/30">
                 <div>
                   <h2 className="text-2xl font-bold text-slate-900">Tổng hợp: {classes.find(c => c.id === selectedClassId)?.name}</h2>
                   <p className="text-sm text-slate-500 mt-1">Ngày {new Date(date).toLocaleDateString('vi-VN')} • {evaluatedCount}/{filteredStudents.length} HS</p>
                 </div>
-                <button
-                  onClick={() => {
-                    const allText = filteredStudents
-                      .filter(s => currentRecords[s.id])
-                      .map((s, index) => `${index + 1}. ${s.name}: ${currentRecords[s.id].finalComment}`)
-                      .join('\n\n');
-                    copyToClipboard(allText);
-                  }}
-                  disabled={evaluatedCount === 0}
-                  className="glass-button flex items-center gap-2"
-                >
-                  <Copy size={18} /> Sao chép tất cả
-                </button>
+                
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="bg-white border border-slate-200 rounded-xl p-1 flex shadow-sm">
+                    <button 
+                      onClick={() => setSummaryViewMode('list')}
+                      className={`p-2 rounded-lg transition-all flex items-center gap-2 text-xs font-bold ${summaryViewMode === 'list' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
+                      title="Xem dạng danh sách"
+                    >
+                      <List size={16} /> Danh sách
+                    </button>
+                    <button 
+                      onClick={() => setSummaryViewMode('table')}
+                      className={`p-2 rounded-lg transition-all flex items-center gap-2 text-xs font-bold ${summaryViewMode === 'table' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
+                      title="Xem dạng bảng"
+                    >
+                      <Table size={16} /> Bảng
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={exportToExcel}
+                    disabled={evaluatedCount === 0}
+                    className="glass-button flex items-center gap-2 bg-green-600 hover:bg-green-700 border-green-700 shadow-green-600/20"
+                  >
+                    <FileSpreadsheet size={18} /> Xuất Excel
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      const allText = filteredStudents
+                        .filter(s => currentRecords[s.id])
+                        .map((s, index) => `${index + 1}. ${s.name}: ${currentRecords[s.id].finalComment}`)
+                        .join('\n\n');
+                      copyToClipboard(allText);
+                    }}
+                    disabled={evaluatedCount === 0}
+                    className="glass-button flex items-center gap-2"
+                  >
+                    <Copy size={18} /> Sao chép text
+                  </button>
+                </div>
               </div>
+
               <div className="p-8 overflow-y-auto flex-1 custom-scrollbar">
                 {evaluatedCount === 0 ? (
                   <div className="text-center text-slate-400 py-20 flex flex-col items-center gap-4">
                     <ClipboardList size={48} className="opacity-20" />
                     <p className="text-lg">Chưa có đánh giá nào cho lớp này trong ngày hôm nay.</p>
                   </div>
-                ) : (
+                ) : summaryViewMode === 'list' ? (
                   <div className="grid grid-cols-1 gap-4">
                     {filteredStudents.map((student, idx) => {
                       const record = currentRecords[student.id];
@@ -704,6 +784,46 @@ export default function App() {
                         </div>
                       );
                     })}
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto rounded-2xl border border-slate-200 shadow-sm">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-slate-200">
+                          <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-widest">STT</th>
+                          <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Học sinh</th>
+                          <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Chuyên cần</th>
+                          <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Thái độ</th>
+                          <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Bài tập</th>
+                          <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Nhận xét</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {filteredStudents.map((student, idx) => {
+                          const record = currentRecords[student.id];
+                          if (!record) return null;
+                          return (
+                            <tr key={student.id} className="hover:bg-slate-50 transition-all">
+                              <td className="p-4 text-sm text-slate-500">{idx + 1}</td>
+                              <td className="p-4 text-sm font-bold text-slate-900">{student.name}</td>
+                              <td className="p-4 text-sm text-slate-600">
+                                {CRITERIA_CONFIG.attendance.options.find(o => o.id === record.attendance)?.text}
+                              </td>
+                              <td className="p-4 text-sm text-slate-600">
+                                {CRITERIA_CONFIG.attitude.options.find(o => o.id === record.attitude)?.text}
+                              </td>
+                              <td className="p-4 text-sm text-slate-600">
+                                {CRITERIA_CONFIG.homework.options.find(o => o.id === record.homework)?.text}
+                              </td>
+                              <td className="p-4 text-sm text-slate-700 max-w-md">
+                                <div className="line-clamp-2 text-xs italic text-slate-500 mb-1">{record.note}</div>
+                                <div className="whitespace-pre-wrap">{record.finalComment}</div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </div>
