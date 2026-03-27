@@ -239,7 +239,7 @@ export default function App() {
       setFormData(prev => ({ ...prev, finalComment: autoGen }));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.attendance, formData.attitude, formData.homework, formData.note, selectedStudentId]);
+  }, [formData.attendance, formData.attitude, formData.homework, formData.note, selectedStudentId, includeEnglish]);
 
   const handleFormChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -335,9 +335,14 @@ export default function App() {
     const student = students.find(s => s.id === selectedStudentId);
     if (!student) return;
 
+    if (!process.env.GEMINI_API_KEY) {
+      showToast('Lỗi: Chưa cấu hình GEMINI_API_KEY. Vui lòng kiểm tra cài đặt.');
+      return;
+    }
+
     setIsGenerating(true);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       
       const attOption = CRITERIA_CONFIG.attendance.options.find(o => o.id === formData.attendance);
       const attitudeOption = CRITERIA_CONFIG.attitude.options.find(o => o.id === formData.attitude);
@@ -715,7 +720,7 @@ export default function App() {
                         <textarea
                           value={formData.finalComment}
                           onChange={(e) => handleFormChange('finalComment', e.target.value)}
-                          className="w-full bg-white p-4 border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none h-48 leading-relaxed"
+                          className="w-full bg-white p-4 border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-y min-h-[300px] leading-relaxed"
                         />
                       </div>
                     </div>
@@ -970,7 +975,7 @@ export default function App() {
           <div className="w-8 h-8 bg-green-500/20 rounded-full flex items-center justify-center">
             <CheckCircle2 size={18} className="text-green-400" />
           </div>
-          <span className="font-bold text-slate-900">{toastMessage}</span>
+          <span className="font-bold text-black">{toastMessage}</span>
         </div>
       )}
 
