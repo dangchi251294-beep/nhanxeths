@@ -35,29 +35,29 @@ const CRITERIA_CONFIG = {
   attendance: {
     label: 'Chuyên cần',
     options: [
-      { id: 'a1', text: 'Đúng giờ', phrase: 'đi học đầy đủ và đúng giờ' },
-      { id: 'a2', text: 'Đi muộn', phrase: 'có đi học nhưng đến lớp hơi muộn' },
-      { id: 'a3', text: 'Nghỉ có phép', phrase: 'hôm nay xin phép nghỉ học' },
-      { id: 'a4', text: 'Nghỉ không phép', phrase: 'hôm nay nghỉ học không có lý do' }
+      { id: 'a1', text: 'Đúng giờ', phrase: 'đi học đầy đủ và đúng giờ', phraseEn: 'attended class fully and on time' },
+      { id: 'a2', text: 'Đi muộn', phrase: 'có đi học nhưng đến lớp hơi muộn', phraseEn: 'attended class but was a bit late' },
+      { id: 'a3', text: 'Nghỉ có phép', phrase: 'hôm nay xin phép nghỉ học', phraseEn: 'requested leave from class today' },
+      { id: 'a4', text: 'Nghỉ không phép', phrase: 'hôm nay nghỉ học không có lý do', phraseEn: 'was absent without notice today' }
     ]
   },
   attitude: {
     label: 'Thái độ học tập',
     options: [
-      { id: 'at1', text: 'Rất hăng hái', phrase: 'rất tập trung nghe giảng và hăng hái phát biểu xây dựng bài' },
-      { id: 'at2', text: 'Chú ý nghe giảng', phrase: 'có chú ý nghe giảng và hoàn thành nhiệm vụ trên lớp' },
-      { id: 'at3', text: 'Đôi lúc xao nhãng', phrase: 'đôi lúc còn thiếu tập trung trong giờ học' },
-      { id: 'at4', text: 'Nói chuyện riêng', phrase: 'còn hay nói chuyện riêng, cần chú ý tập trung hơn' }
+      { id: 'at1', text: 'Rất hăng hái', phrase: 'rất tập trung nghe giảng và hăng hái phát biểu xây dựng bài', phraseEn: 'was very focused and actively participated in class discussions' },
+      { id: 'at2', text: 'Chú ý nghe giảng', phrase: 'có chú ý nghe giảng và hoàn thành nhiệm vụ trên lớp', phraseEn: 'paid attention and completed classroom tasks' },
+      { id: 'at3', text: 'Đôi lúc xao nhãng', phrase: 'đôi lúc còn thiếu tập trung trong giờ học', phraseEn: 'was occasionally distracted during the lesson' },
+      { id: 'at4', text: 'Nói chuyện riêng', phrase: 'còn hay nói chuyện riêng, cần chú ý tập trung hơn', phraseEn: 'frequently talked privately and needs to focus more' }
     ]
   },
   homework: {
     label: 'Bài tập về nhà',
     options: [
-      { id: 'h1', text: 'Hoàn thành tốt', phrase: 'đã hoàn thành rất tốt bài tập được giao' },
-      { id: 'h2', text: 'Có làm bài', phrase: 'đã làm bài tập đầy đủ' },
-      { id: 'h3', text: 'Làm thiếu', phrase: 'chưa hoàn thành hết phần bài tập về nhà' },
-      { id: 'h4', text: 'Chưa làm', phrase: 'chưa làm bài tập về nhà' },
-      { id: 'h5', text: 'Không có BTVN', phrase: '' }
+      { id: 'h1', text: 'Hoàn thành tốt', phrase: 'đã hoàn thành rất tốt bài tập được giao', phraseEn: 'completed the assigned homework very well' },
+      { id: 'h2', text: 'Có làm bài', phrase: 'đã làm bài tập đầy đủ', phraseEn: 'completed the homework fully' },
+      { id: 'h3', text: 'Làm thiếu', phrase: 'chưa hoàn thành hết phần bài tập về nhà', phraseEn: 'did not complete all the homework' },
+      { id: 'h4', text: 'Chưa làm', phrase: 'chưa làm bài tập về nhà', phraseEn: 'did not do the homework' },
+      { id: 'h5', text: 'Không có BTVN', phrase: '', phraseEn: '' }
     ]
   }
 };
@@ -75,7 +75,7 @@ interface Class {
 
 export default function App() {
   // --- STATE ---
-  const [activeTab, setActiveTab] = useState('evaluate'); // 'evaluate', 'summary', 'students'
+  const [activeTab, setActiveTab] = useState('students'); // 'students', 'evaluate', 'summary'
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   
   const [classes, setClasses] = useState<Class[]>([]);
@@ -183,12 +183,25 @@ export default function App() {
     const student = students.find(s => s.id === selectedStudentId);
     if (!student) return '';
     
-    const attPhrase = CRITERIA_CONFIG.attendance.options.find(o => o.id === data.attendance)?.phrase;
-    const attitudePhrase = CRITERIA_CONFIG.attitude.options.find(o => o.id === data.attitude)?.phrase;
-    const hwPhrase = CRITERIA_CONFIG.homework.options.find(o => o.id === data.homework)?.phrase;
+    const attOpt = CRITERIA_CONFIG.attendance.options.find(o => o.id === data.attendance);
+    const attitudeOpt = CRITERIA_CONFIG.attitude.options.find(o => o.id === data.attitude);
+    const hwOpt = CRITERIA_CONFIG.homework.options.find(o => o.id === data.homework);
+    
+    const attPhrase = attOpt?.phrase;
+    const attitudePhrase = attitudeOpt?.phrase;
+    const hwPhrase = hwOpt?.phrase;
+
+    const attPhraseEn = attOpt?.phraseEn;
+    const attitudePhraseEn = attitudeOpt?.phraseEn;
+    const hwPhraseEn = hwOpt?.phraseEn;
     
     if (data.attendance === 'a3' || data.attendance === 'a4') {
-      return `Hôm nay ${student.name} ${attPhrase}. ${data.note ? '\nLưu ý: ' + data.note : ''}`;
+      let vn = `Hôm nay ${student.name} ${attPhrase}. ${data.note ? '\nLưu ý: ' + data.note : ''}`;
+      if (includeEnglish) {
+        let en = `Today ${student.name} ${attPhraseEn}. ${data.note ? '\nNote: ' + data.note : ''}`;
+        return `${vn}\n\n--- English Version ---\n${en}`;
+      }
+      return vn;
     }
 
     let sentences = [];
@@ -201,7 +214,23 @@ export default function App() {
       sentences.push(data.note);
     }
     
-    return sentences.join(' ');
+    let vnResult = sentences.join(' ');
+
+    if (includeEnglish) {
+      let sentencesEn = [];
+      sentencesEn.push(`Today ${student.name} ${attPhraseEn}.`);
+      sentencesEn.push(`During the lesson, the student ${attitudePhraseEn}.`);
+      if (hwPhraseEn) {
+        sentencesEn.push(`Regarding homework, the student ${hwPhraseEn}.`);
+      }
+      if (data.note && data.note.trim() !== '') {
+        sentencesEn.push(data.note);
+      }
+      let enResult = sentencesEn.join(' ');
+      return `${vnResult}\n\n--- English Version ---\n${enResult}`;
+    }
+    
+    return vnResult;
   };
 
   useEffect(() => {
@@ -331,12 +360,12 @@ export default function App() {
         - Bài tập: ${hwOption?.text}
         - Ghi chú riêng: ${formData.note || 'Không có'}
 
-        Yêu cầu:
+        Yêu cầu BẮT BUỘC:
         1. Viết một đoạn nhận xét ngắn (khoảng 2-4 câu).
-        2. Sử dụng danh xưng: "${aiPronoun}" để gọi học sinh.
+        2. Sử dụng danh xưng: "${aiPronoun}" để gọi học sinh trong tiếng Việt.
         3. Tông giọng: ${toneLabels[aiTone]}.
-        4. Ngôn ngữ: ${includeEnglish ? 'Bao gồm cả Tiếng Việt và Tiếng Anh.' : 'Chỉ Tiếng Việt.'}
-        ${includeEnglish ? '5. Cấu trúc: Tiếng Việt ở trên, sau đó là dòng "--- English Version ---", và Tiếng Anh ở dưới.' : ''}
+        4. Ngôn ngữ: ${includeEnglish ? 'BẮT BUỘC phải bao gồm cả Tiếng Việt và Tiếng Anh.' : 'Chỉ Tiếng Việt.'}
+        ${includeEnglish ? '5. Cấu trúc: Luôn luôn viết Tiếng Việt ở trên, sau đó là dòng "--- English Version ---", và Tiếng Anh ở dưới. KHÔNG ĐƯỢC QUÊN PHẦN TIẾNG ANH.' : ''}
         6. Nội dung cần phản ánh đúng các tiêu chí đã chọn.
         7. Chỉ trả về nội dung nhận xét, không thêm lời dẫn hay ký tên.
       `;
@@ -456,6 +485,12 @@ export default function App() {
         <nav className="w-full md:w-72 flex flex-col gap-4">
           <div className="glass-card p-3 flex flex-col gap-2">
             <button 
+              onClick={() => setActiveTab('students')}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium ${activeTab === 'students' ? 'glass-tab-active' : 'glass-tab-inactive'}`}
+            >
+              <Users size={20} /> <span>Quản lý lớp</span>
+            </button>
+            <button 
               onClick={() => setActiveTab('evaluate')}
               className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium ${activeTab === 'evaluate' ? 'glass-tab-active' : 'glass-tab-inactive'}`}
             >
@@ -466,12 +501,6 @@ export default function App() {
               className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium ${activeTab === 'summary' ? 'glass-tab-active' : 'glass-tab-inactive'}`}
             >
               <ClipboardList size={20} /> <span>Tổng hợp</span>
-            </button>
-            <button 
-              onClick={() => setActiveTab('students')}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium ${activeTab === 'students' ? 'glass-tab-active' : 'glass-tab-inactive'}`}
-            >
-              <Users size={20} /> <span>Quản lý lớp</span>
             </button>
           </div>
 
@@ -686,7 +715,7 @@ export default function App() {
                         <textarea
                           value={formData.finalComment}
                           onChange={(e) => handleFormChange('finalComment', e.target.value)}
-                          className="w-full bg-white p-4 border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none h-32 leading-relaxed"
+                          className="w-full bg-white p-4 border border-slate-200 rounded-xl text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none h-48 leading-relaxed"
                         />
                       </div>
                     </div>
@@ -941,7 +970,7 @@ export default function App() {
           <div className="w-8 h-8 bg-green-500/20 rounded-full flex items-center justify-center">
             <CheckCircle2 size={18} className="text-green-400" />
           </div>
-          <span className="font-bold text-white">{toastMessage}</span>
+          <span className="font-bold text-slate-900">{toastMessage}</span>
         </div>
       )}
 
