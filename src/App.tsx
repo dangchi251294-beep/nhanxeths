@@ -18,8 +18,12 @@ import {
   GraduationCap,
   ChevronRight,
   Search,
-  Filter
+  Filter,
+  Sparkles,
+  Loader2,
+  MessageSquareQuote
 } from 'lucide-react';
+import { GoogleGenAI } from "@google/genai";
 
 // --- CẤU HÌNH TIÊU CHÍ ĐÁNH GIÁ ---
 const CRITERIA_CONFIG = {
@@ -86,6 +90,11 @@ export default function App() {
   const [newStudentName, setNewStudentName] = useState('');
   const [newClassName, setNewClassName] = useState('');
   
+  // AI Config
+  const [aiTone, setAiTone] = useState('friendly'); // friendly, serious, encouraging, concise
+  const [aiPronoun, setAiPronoun] = useState('con'); // con, em, bạn, học sinh
+  const [isGenerating, setIsGenerating] = useState(false);
+
   // Lưu trữ đánh giá theo ngày và ID học sinh
   const [records, setRecords] = useState<Record<string, Record<string, any>>>({});
   
@@ -248,6 +257,65 @@ export default function App() {
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(''), 3000);
+  };
+
+  const handleGenerateAIComment = async () => {
+    if (!selectedStudentId) return;
+    
+    const student = students.find(s => s.id === selectedStudentId);
+    if (!student) return;
+
+    setIsGenerating(true);
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+      
+      const attOption = CRITERIA_CONFIG.attendance.options.find(o => o.id === formData.attendance);
+      const attitudeOption = CRITERIA_CONFIG.attitude.options.find(o => o.id === formData.attitude);
+      const hwOption = CRITERIA_CONFIG.homework.options.find(o => o.id === formData.homework);
+
+      const toneLabels: Record<string, string> = {
+        friendly: 'thân thiện, gần gũi',
+        serious: 'nghiêm túc, chuyên nghiệp',
+        encouraging: 'khích lệ, truyền cảm hứng',
+        concise: 'ngắn gọn, súc tích'
+      };
+
+      const prompt = `
+        Bạn là một giáo viên đang viết nhận xét hàng ngày cho học sinh.
+        Thông tin học sinh:
+        - Tên: ${student.name}
+        - Lớp: ${classes.find(c => c.id === selectedClassId)?.name}
+        - Chuyên cần: ${attOption?.text}
+        - Thái độ: ${attitudeOption?.text}
+        - Bài tập: ${hwOption?.text}
+        - Ghi chú riêng: ${formData.note || 'Không có'}
+
+        Yêu cầu:
+        1. Viết một đoạn nhận xét ngắn (khoảng 2-4 câu).
+        2. Sử dụng danh xưng: "${aiPronoun}" để gọi học sinh.
+        3. Tông giọng: ${toneLabels[aiTone]}.
+        4. Ngôn ngữ: Bao gồm cả Tiếng Việt và Tiếng Anh.
+        5. Cấu trúc: Tiếng Việt ở trên, sau đó là dòng "--- English Version ---", và Tiếng Anh ở dưới.
+        6. Nội dung cần phản ánh đúng các tiêu chí đã chọn.
+        7. Chỉ trả về nội dung nhận xét, không thêm lời dẫn hay ký tên.
+      `;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: prompt,
+      });
+
+      const aiText = response.text || '';
+      if (aiText) {
+        setFormData(prev => ({ ...prev, finalComment: aiText.trim() }));
+        showToast('Đã tạo nhận xét bằng AI!');
+      }
+    } catch (error) {
+      console.error('AI Generation Error:', error);
+      showToast('Lỗi khi tạo nhận xét bằng AI. Vui lòng thử lại.');
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   // --- RENDER HELPERS ---
@@ -437,6 +505,72 @@ export default function App() {
                           placeholder="Nhập ghi chú riêng cho học sinh..."
                           className="w-full glass-input resize-none h-24 text-sm"
                         />
+                      </div>
+
+                      <div className="bg-white/5 rounded-2xl p-6 border border-white/10">
+                        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                          <Sparkles size={14} className="text-blue-400" /> Tùy chỉnh AI
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div>
+                            <label className="text-xs text-slate-500 mb-2 block">Tông giọng</label>
+                            <div className="flex flex-wrap gap-2">
+                              {[
+                                { id: 'friendly', label: 'Thân thiện' },
+                                { id: 'serious', label: 'Nghiêm túc' },
+                                { id: 'encouraging', label: 'Khích lệ' },
+                                { id: 'concise', label: 'Ngắn gọn' }
+                              ].map(t => (
+                                <button
+                                  key={t.id}
+                                  onClick={() => setAiTone(t.id)}
+                                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                                    aiTone === t.id 
+                                      ? 'bg-blue-500/20 border-blue-500/50 text-blue-300' 
+                                      : 'bg-white/5 border-white/5 text-slate-500 hover:bg-white/10'
+                                  }`}
+                                >
+                                  {t.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          <div>
+                            <label className="text-xs text-slate-500 mb-2 block">Danh xưng</label>
+                            <div className="flex flex-wrap gap-2">
+                              {[
+                                { id: 'con', label: 'Con' },
+                                { id: 'em', label: 'Em' },
+                                { id: 'bạn', label: 'Bạn' },
+                                { id: 'học sinh', label: 'Học sinh' }
+                              ].map(p => (
+                                <button
+                                  key={p.id}
+                                  onClick={() => setAiPronoun(p.id)}
+                                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                                    aiPronoun === p.id 
+                                      ? 'bg-blue-500/20 border-blue-500/50 text-blue-300' 
+                                      : 'bg-white/5 border-white/5 text-slate-500 hover:bg-white/10'
+                                  }`}
+                                >
+                                  {p.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          onClick={handleGenerateAIComment}
+                          disabled={isGenerating}
+                          className="w-full mt-6 glass-button-secondary flex items-center justify-center gap-2 py-3 font-bold text-blue-400 border-blue-500/20 hover:border-blue-500/40"
+                        >
+                          {isGenerating ? (
+                            <Loader2 size={18} className="animate-spin" />
+                          ) : (
+                            <Sparkles size={18} />
+                          )}
+                          {isGenerating ? 'Đang tạo nhận xét...' : 'Tạo nhận xét bằng AI'}
+                        </button>
                       </div>
 
                       <div className="bg-blue-500/5 rounded-2xl p-6 border border-blue-500/20">
